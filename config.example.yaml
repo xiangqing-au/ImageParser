@@ -1,0 +1,35 @@
+# Copy this file to `config.yaml` and edit it. `config.yaml` is git-ignored.
+
+# Root folder for routes/, screenshots/ and logs/ (absolute or relative path).
+work_base: ./workspace
+
+# Path to adb. Use "adb" when it is on your PATH.
+adb_path: adb
+# adb_path: C:\platform-tools\adb.exe
+
+# Only needed for the Tesseract OCR engine on Windows.
+# tesseract_cmd: C:\Program Files\Tesseract-OCR\tesseract.exe
+
+# OCR engine for the analysis step: auto | easyocr | paddleocr | tesseract
+ocr_engine: auto
+ocr_gpu: true
+
+# Phones: alias -> ADB serial (see `adb devices`) and screen profile.
+# Aliases are what you pass to --phone. Profiles live in appautomation/constants.py.
+phones:
+  phone_a:
+    serial: YOUR_ADB_SERIAL_A
+    profile: hd720
+  phone_b:
+    serial: YOUR_ADB_SERIAL_B
+    profile: hd720
+
+# Route ids recorded when --partial is given.
+partial_routes: [1, 2, 3]
+
+# Optional e-mail notifications through the Gmail API (remove the block to disable).
+email:
+  sender: your.sender@example.com
+  recipient: your.recipient@example.com
+  credentials_file: credentials.json
+  token_file: token.json
