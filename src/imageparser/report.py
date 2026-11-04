@@ -6,8 +6,8 @@ mailed, committed as an artifact, or opened offline.
 
 Typical use::
 
-    appautomation --report screenshots/0906_NYC_phone_a/ZZ_NYC_0906.csv
-    appautomation --report run_a/ZZ_NYC_0906.csv run_b/ZZ_NYC_0906.csv -o out.html
+    imageparser --report screenshots/0906_NYC_phone_a/ZZ_NYC_0906.csv
+    imageparser --report run_a/ZZ_NYC_0906.csv run_b/ZZ_NYC_0906.csv -o out.html
 """
 
 from __future__ import annotations
@@ -242,7 +242,7 @@ footer{margin-top:36px;color:var(--muted);font-size:12px}
 
 
 def render_report(datasets: Sequence[Tuple[str, Sequence[Dict[str, object]]]],
-                  title: str = "Fare capture report") -> str:
+                  title: str = "Fare analysis report") -> str:
     """Render the full HTML page for one or more labelled datasets."""
     summaries = [summarise(label, rows) for label, rows in datasets]
     primary_label, primary_rows = datasets[0] if datasets else ("", [])
@@ -266,7 +266,7 @@ def render_report(datasets: Sequence[Tuple[str, Sequence[Dict[str, object]]]],
 </head>
 <body>
 <h1>{_esc(title)}</h1>
-<p class="sub">{_esc(primary_label)} · generated {generated} by appautomation</p>
+<p class="sub">{_esc(primary_label)} · generated {generated} by ImageParser</p>
 
 <div class="cards">{_cards(summaries[0])}</div>
 
@@ -315,6 +315,6 @@ def write_report(paths: Sequence[Path], output: Optional[str] = None,
     csv_path = Path(paths[0])
     out = Path(output) if output else csv_path.with_name(f"report_{csv_path.stem}.html")
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render_report(datasets, title or f"Fare capture report — {csv_path.stem}"),
+    out.write_text(render_report(datasets, title or f"Fare analysis report — {csv_path.stem}"),
                    encoding="utf-8")
     return out

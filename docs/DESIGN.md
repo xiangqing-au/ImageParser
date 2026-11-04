@@ -1,147 +1,59 @@
-# Design Document — AppAutomation
+# Design Document — ImageParser
 
-Version 2.0 · 2026-10-17 · Status: implemented
+## Purpose and data flow
 
-Covers *how* the tool is built and why. Requirements live in
-[`REQUIREMENTS.md`](REQUIREMENTS.md), quality assurance in
-[`TEST_PLAN.md`](TEST_PLAN.md), future multi-device work in
-[`MULTI_DEVICE_PLAN.md`](MULTI_DEVICE_PLAN.md).
-
----
-
-## 1. Context
+ImageParser reads a route CSV and existing screenshots, applies configured
+OCR to selected image regions, and writes a result CSV. The report module can
+turn one or more result CSVs into standalone HTML:
 
 ```mermaid
 flowchart LR
-    R[routes/CITY.csv] --> RUN[runner]
-    CFG[config.yaml] --> RUN
-    RUN -->|ADB + uiautomator2| PHONE[(Android phone)]
-    PHONE -->|screenshots| SHOTS[screenshots/DATE_CITY_PHONE/*.png]
-    SHOTS --> OCR[analysis: OCR + regex]
-    OCR --> CSV[ZZ_CITY_DATE.csv]
-    RUN -.->|Gmail API| MAIL[(notification)]
+    CFG[config.yaml or config.example.yaml] --> CLI[imageparser CLI]
+    ROUTES[routes/CITY.csv] --> BATCH[analyser]
+    SHOTS[screenshots/*.png] --> OCR[parser: crop + OCR + extraction]
+    OCR --> BATCH
+    BATCH --> CSV[ZZ_CITY_DATE.csv]
+    CSV --> REPORT[HTML report]
 ```
 
-One process owns one phone. The same process (or another one, with
-`--analyse`) turns the captured images into structured data.
+Device control and screenshot capture are not part of the current application.
 
-## 2. Module map
+## Package map
 
 | Module | Responsibility |
 |--------|----------------|
-| `cli.py` | Argument parsing, config resolution, run/analyse dispatch |
-| `config.py` | YAML → `Config`/`PhoneConfig`/`EmailConfig` dataclasses, search order |
-| `constants.py` | Static tables: cities, `TASK_APPS`, `SCREEN_PROFILES`, `CHARGE_MAP`, `RESULT_FIELDS` |
-| `naming.py` | Task-name parsing, address expansion, file-name/exists helpers |
-| `routes.py` | CSV loading and route selection (`read_routes`, `select_routes`) |
-| `device.py` | ADB/uiautomator2 connection (with atx-agent restart), wake & unlock |
-| `runner.py` | Orchestration: `RunParams`, recording loop, retries, analysis hand-off |
-| `apps/base.py` | `App` ABC + `AppNotReadyError`; screenshot naming lives here |
-| `apps/ui_resource.py` | Selector DSL over uiautomator2: wait/click/input primitives |
-| `apps/{bolt,indrive,google_maps}.py` | Concrete drivers (package, activity, flow, suffixes) |
-| `analysis/engines.py` | `OcrEngine` ABC + EasyOCR/PaddleOCR/Tesseract back-ends, `create_engine` |
-| `analysis/parser.py` | Screenshot → fields (crop, dispatch by suffix, regex extraction) |
-| `analysis/analyser.py` | Batch: routes + screenshots → `ZZ_<CITY>_<DATE>.csv` |
-| `text_utils.py` | OCR text → numbers (`to_float`, `search_price`, Google info parsers) |
-| `notify.py` | Optional Gmail send (OAuth desktop flow, `token.json` cache) |
-| `report.py` | Result CSV(s) → self-contained HTML: KPIs, inline-SVG chart, fee means, data quality, comparison |
+| `imageparser/cli.py` | Configuration, screenshot analysis, and report command dispatch |
+| `imageparser/config.py` | YAML → configuration dataclasses and config-file lookup |
+| `imageparser/constants.py` | OCR crop profiles, fare labels, and result CSV columns |
+| `imageparser/naming.py` | Legacy city-prefix handling and screenshot file paths |
+| `imageparser/routes.py` | Loading route rows used to associate screenshots with addresses |
+| `imageparser/analysis/engines.py` | OCR interface and EasyOCR/PaddleOCR/Tesseract back-ends |
+| `imageparser/analysis/parser.py` | Per-image crop, OCR dispatch, and field extraction |
+| `imageparser/analysis/analyser.py` | Route/app screenshot batch processing and CSV output |
+| `imageparser/text_utils.py` | OCR text-to-number, fare, and map-summary parsing |
+| `imageparser/report.py` | Result CSVs → self-contained HTML reports |
 
-## 3. Key design decisions
+## Screenshot and result contract
 
-### D1 — Task names instead of per-run app lists
-`--city BOLT_NYC` encodes *which apps* (`BOLT` prefix) and *which route file*
-(`NYC`) in one token. `TASK_APPS` maps task keys to ordered app keys;
-`NO_ANALYSIS_TASKS` opts tasks out of OCR. Chosen over a CLI app list because
-it keeps the command short, is cron-friendly, and makes the route-file ↔
-app-set pairing explicit.
+Screenshots are named `<CITY><DATE><ID:03d><SUFFIX>.png` and stored in
+`<work_base>/screenshots/<DATE>_<CITY>_<PHONE>/`. Supported fare groups are
+`B`/`BI` (Bolt), `D`/`DI` (DiDi), and `UX`/`UXI` (UberX). `UX1` is an
+alternative UberX fare image. `G` contains map distance and duration; `G0` and
+`G1` are alternatives. When an app group is present in the run, the output
+contains a row for each route for that group. Corrected files under `dc/`
+take precedence over their matching originals.
 
-### D2 — Drivers are classes behind a registry
-`App` (ABC) fixes the lifecycle contract: class-level `package`, `activity`,
-`required_suffixes`; instance gets `(dev, route_id, pickup, destination, city,
-date, output_dir)`; `get_info() -> bool` does the work;
-`AppNotReadyError` signals "app unusable, abort the run" (e.g. logged out) —
-distinct from a per-route `False`, which the runner retries. `APP_REGISTRY`
-maps short keys to classes so the runner stays driver-agnostic.
+`ScreenshotParser` extracts fields from individual images.
+`ScreenshotAnalyser` loads route rows and writes fields in `RESULT_FIELDS`
+order. Alternative Google images are read in place and are not renamed.
+OCR libraries are loaded lazily; `create_engine("auto")` tries EasyOCR,
+PaddleOCR, then Tesseract.
 
-### D3 — Selector DSL (`UiResource`)
-App flows read like a list of user actions (`rh.wait(idx='textContainer')`,
-`rh.text_operation('Dropoff location', 'exists', 'click')`). The class wraps
-uiautomator2 with: per-app resource-id prefixes (`ID_PREFIXES`), polling waits
-(`max_wait` × `delay`), the "click twice" reliability idiom, and logging of
-every lookup — unattended runs are debuggable from the log file alone.
+## Configuration
 
-### D4 — Screenshot naming is the analysis contract
-`<CITY><DATE><ID:03d><SUFFIX>.png` ties capture to OCR: suffix codes are keys
-into `SCREEN_PROFILES[profile]` crop boxes, and `required_suffixes` lets the
-runner detect incomplete routes without understanding app internals.
-`G` screenshots are upgraded from alternatives (`G0`/`G1`) at analysis time.
-
-### D5 — Screen profiles in code, not config
-Crop regions are pixel boxes tuned per resolution; they change only with new
-hardware, not per deployment. Keeping them in `constants.SCREEN_PROFILES`
-(marked clearly, documented in README) avoids config drift; a phone selects a
-profile by name. Trade-off: adding a resolution means a code change, which is
-acceptable at this scale.
-
-### D6 — OCR behind a tiny interface, heavy imports lazy
-`OcrEngine.read_lines/read_text` is the whole contract; engines load their
-SDK inside `__init__`, so the package imports and the CLI runs (`--capture-only`)
-with none of EasyOCR/Paddle/Torch installed. `create_engine("auto")` falls
-back in accuracy order.
-
-### D7 — Config dataclasses with fail-early validation
-YAML is read once into typed dataclasses; unknown phone aliases raise before
-any device contact. Secret material (OAuth client, token) is only referenced
-by path.
-
-### D8 — Robustness policy
-Per-route exception → log + `False` + one retry → skip route; ≥ 3 consecutive
-failures → notify + exit(1); app unusable → `AppNotReadyError` → notify +
-exit(1). `finish_task`-style exit always releases the phone (uiautomator
-reset, screen off). Random inter-route sleeps keep request patterns human-like.
-
-### D9 — Reports are static HTML, generated from the CSV only
-The report layer reads nothing but `ZZ_*.csv`, so it runs on any machine, in
-CI, or after the fact on archived data. Charts are inline SVG computed in
-Python rather than a JS library: the file stays a single artifact that can be
-e-mailed, committed, or opened with no network. Trade-off: no interactivity —
-accepted, because the report's job is to make a run inspectable, not to be a
-dashboard.
-
-## 4. Data flow
-
-1. **Capture** — `select_routes` filters the city CSV; per route, per app:
-   `app_start(stop=True)` → dismiss dialogs → enter addresses →
-   `screenshot(suffix)` per fare screen → `True/False`.
-2. **Analysis** — for each route id: parse `B` (mtime → date/time, price with
-   discount pattern fallback), `BI` (label→value lines mapped through
-   `CHARGE_MAP`, including range brackets like `0-12` km), `G`/`G0`/`G1`
-   (distance + duration, two pattern levels). Rows are written in
-   `RESULT_FIELDS` order; `src`/`dst` are punctuation-stripped.
-
-## 5. Concurrency model (current)
-
-Single-threaded, single-device per process. Parallelism today = launch one
-process per phone manually (directories are already phone-namespaced). A
-designed orchestration layer is specified in [`MULTI_DEVICE_PLAN.md`](MULTI_DEVICE_PLAN.md)
-and is intentionally **not** in v2.
-
-## 6. Extension points
-
-* **New app** — driver file (`apps/my_app.py`), one `APP_REGISTRY` entry, one
-  `TASK_APPS` entry, `ID_PREFIXES` entry; see README "Extending".
-* **New phone** — `phones:` config entry; add a `SCREEN_PROFILES` entry if its
-  resolution differs.
-* **New OCR engine** — subclass `OcrEngine`, register in `create_engine`.
-* **New city** — `CITY_NAMES` (+ state/country) and a routes CSV.
-
-## 7. Known limitations
-
-* Bolt fare-detail labels (`CHARGE_MAP`) are locale-dependent (English
-  locales); a locale change requires label updates, not code changes.
-* Suggestion taps on maps are relative-coordinate clicks (`0.3, 0.125` …);
-  large UI redesigns shift them and require recalibration.
-* Analysis assumes the `hd720`-style profile matches the capture device —
-  capture and analysis must use the same profile.
-* `TIME_*` scheduling is wall-clock in local time with a fixed
-  `TIME_DIFFERENCE` offset; DST transitions are not handled.
+Configuration lookup order is explicit `--config`, `IMAGEPARSER_CONFIG` (or
+legacy `APPAUTOMATION_CONFIG`), `config.yaml` in the current directory, then
+the bundled `config.example.yaml`. Analysis uses `work_base`, `ocr_engine`,
+`ocr_gpu`, `tesseract_cmd`, and the selected phone's screen profile. Retained
+device and email configuration fields are compatibility-only and are not used
+in image analysis.

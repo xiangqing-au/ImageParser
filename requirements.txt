@@ -1,4 +1,3 @@
-uiautomator2>=3.0
 pandas>=1.5
 PyYAML>=6.0
 opencv-python>=4.7
@@ -8,8 +7,3 @@ numpy>=1.23
 # easyocr>=1.7
 # paddleocr>=2.7
 # pytesseract>=0.3.10
-
-# --- Optional: e-mail notifications through the Gmail API ---
-# google-api-python-client
-# google-auth-httplib2
-# google-auth-oauthlib

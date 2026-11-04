@@ -6,6 +6,22 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added
+- Direct execution of the CLI source file and a bundled example configuration
+  fallback when no local configuration is present.
+
+### Changed
+- Renamed the Python package and console command to `imageparser`.
+- Documented the current Bolt (`B`/`BI`), DiDi (`D`/`DI`), UberX
+  (`UX`/`UXI`/`UX1`), corrected screenshot (`dc/`), and Google Maps
+  (`G`/`G0`/`G1`) inputs.
+- Updated setup, command-line, configuration, and architecture documentation
+  for the screenshot-analysis-only application.
+
+### Removed
+- Android device connection, app automation, and screenshot-capture features.
+- Capture-only CLI options, capture examples, and device automation dependency.
+
 ## [2.1.0] - 2026-10-17
 
 ### Added
@@ -13,13 +29,12 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   page with KPI cards, price-per-route bar chart (inline SVG), fee breakdown,
   data-quality table, per-route rows, and a run comparison table when several
   CSVs are passed. No JS, no external assets, works offline.
-  CLI: `appautomation --report <csv>... [-o out.html]`.
 - `examples/04_report.py`: builds a report from synthetic data, no phone or
   OCR engine required.
-- Tests for the report module (statistics, HTML escaping, multi-file
-  comparison, empty data, CLI entry point) — suite grew from 12 to 20 tests.
+- Report tests for statistics, HTML escaping, multi-file comparison, empty
+  data, and CLI entry point.
 - Process documentation: `docs/REQUIREMENTS.md`, `docs/DESIGN.md`,
-  `docs/TEST_PLAN.md`, `docs/MULTI_DEVICE_PLAN.md`.
+  and `docs/TEST_PLAN.md`.
 - GitHub Actions CI (ruff + pytest on Python 3.9/3.12), CodeQL workflow,
   Dependabot (pip + actions), coverage summary and artifact per run.
 - Issue forms, pull-request template, `CONTRIBUTING.md`, `pre-commit` config.
@@ -41,10 +56,9 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 ## [2.0.0] - 2026-10-17
 
 ### Added
-- Package layout under `src/appautomation` with `pyproject.toml`
-  (`pip install -e ".[easyocr|paddle|tesseract|gmail|dev]"`).
-- CLI entry point `appautomation` with `--analyse`, `--capture-only`,
-  `--partial`, `--config`, and `0000` = today date labels.
+- Package layout under `src/` with `pyproject.toml`
+  and optional OCR/development dependency groups.
+- CLI entry point for analysis, capture, configuration, and date labels.
 - Task naming system (`BOLT_NYC`, `INDRIVE_NYC`, `GOOGLE_LAX`, `TIME_NYC`)
   replacing per-run app lists; `TASK_APPS` / `NO_ANALYSIS_TASKS` tables.
 - Google Maps driver: distance and duration, alternative-route capture.
@@ -53,8 +67,8 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   `RunParams` and dataclass-based configuration.
 - Unit tests (12) covering task names, address expansion, price/distance
   parsing and hourly route batching.
-- Runnable examples (text parsing, synthetic analysis, programmatic capture)
-  and `docs/GPU_SETUP.md`.
+- Runnable examples (text parsing, synthetic analysis, and programmatic
+  capture) and `docs/GPU_SETUP.md`.
 
 ### Changed
 - OCR back-ends behind one `OcrEngine` interface with lazy imports; engine

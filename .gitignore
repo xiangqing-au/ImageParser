@@ -1,0 +1,5 @@
+/.vscode
+.DS_Store
+/1103_SYD_PICKUP_optus
+/src/imageparser/analysis/__pycache__
+/src/imageparser/__pycache__

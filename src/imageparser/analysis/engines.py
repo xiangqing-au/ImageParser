@@ -63,7 +63,10 @@ class TesseractEngine(OcrEngine):
         self._tesseract = pytesseract
 
     def read_lines(self, image: np.ndarray) -> List[str]:
-        return [ln for ln in self._tesseract.image_to_string(image).splitlines() if ln.strip()]
+        return [
+            ln for ln in self._tesseract.image_to_string(image, config="--psm 6").splitlines()
+            if ln.strip()
+        ]
 
 
 def create_engine(name: str = "auto", gpu: bool = True,

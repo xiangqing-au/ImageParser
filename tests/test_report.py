@@ -4,8 +4,8 @@ import csv
 
 import pytest
 
-from appautomation.cli import main
-from appautomation.report import load_rows, render_report, summarise, write_report
+from imageparser.cli import main
+from imageparser.report import load_rows, render_report, summarise, write_report
 
 HEADER = ["id", "date", "time", "dist", "trip", "toll", "surcharge", "surge", "price",
           "base", "minimum", "minute", "kilo", "booking", "rateB", "short", "medium",
@@ -33,7 +33,7 @@ def write_csv(tmp_path, rows, name="ZZ_NYC_0906.csv"):
 def test_summarise_price_statistics():
     rows = [_row(1, price="10.00", dist="5.0", trip="12", toll="1.50"),
             _row(2, price="20.00", dist="9.0", trip="20"),
-            _row(3, price="")]  # failed capture: no price
+            _row(3, price="")]  # missing price
 
     summary = summarise("run", rows)
 
@@ -105,3 +105,31 @@ def test_cli_report_mode(tmp_path, capsys):
 
     assert out.is_file()
     assert "Report written" in capsys.readouterr().out
+
+
+def test_cli_analysis_mode_uses_existing_routes_and_config(tmp_path, monkeypatch, capsys):
+    from imageparser import analysis
+
+    work_base = tmp_path / "workspace"
+    routes = work_base / "routes"
+    routes.mkdir(parents=True)
+    (routes / "NYC.csv").write_text(
+        "id,src,dst\n1,Times Square,JFK Airport\n", encoding="utf-8")
+    config = tmp_path / "config.yaml"
+    config.write_text(
+        f'work_base: "{work_base}"\n'
+        "phones:\n"
+        "  phone_a:\n"
+        "    serial: existing-config-value\n"
+        "    profile: hd720\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(analysis, "create_engine", lambda *args: object())
+
+    main(["--config", str(config), "--phone", "PHONE_A", "--city", "BOLT_NYC",
+          "--date", "0906", "--analyse"])
+
+    result = work_base / "screenshots" / "0906_NYC_phone_a" / "ZZ_NYC_0906.csv"
+    assert result.is_file()
+    assert "times square,jfk airport" in result.read_text(encoding="utf-8")
+    assert "Finish analysing 0906 phone_a NYC" in capsys.readouterr().out

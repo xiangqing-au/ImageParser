@@ -1,9 +1,4 @@
-"""Configuration loading.
-
-All machine specific values (device serials, e-mail addresses, tool paths)
-live in a YAML file that is *not* part of the repository. Copy
-``config.example.yaml`` to ``config.yaml`` and edit it.
-"""
+"""Load screenshot-analysis settings from YAML configuration."""
 
 from __future__ import annotations
 
@@ -14,20 +9,21 @@ from typing import Dict, List, Optional
 
 import yaml
 
-CONFIG_ENV_VAR = "APPAUTOMATION_CONFIG"
+CONFIG_ENV_VAR = "IMAGEPARSER_CONFIG"
+LEGACY_CONFIG_ENV_VAR = "APPAUTOMATION_CONFIG"
 DEFAULT_CONFIG_NAME = "config.yaml"
 
 
 @dataclass
 class PhoneConfig:
-    """One physical Android device."""
-    serial: str                 # `adb devices` serial number
+    """Screen profile plus legacy device serial from the preserved config schema."""
+    serial: str                 # retained for configuration compatibility
     profile: str = "hd720"      # key of constants.SCREEN_PROFILES
 
 
 @dataclass
 class EmailConfig:
-    """Gmail API notification settings (optional)."""
+    """Legacy Gmail notification settings retained for configuration compatibility."""
     sender: str
     recipient: str
     credentials_file: str = "credentials.json"
@@ -55,13 +51,20 @@ class Config:
 
 
 def find_config(explicit: Optional[str] = None) -> Path:
-    """Locate the config file: ``--config`` > ``$APPAUTOMATION_CONFIG`` > ``./config.yaml``."""
-    candidate = explicit or os.environ.get(CONFIG_ENV_VAR) or DEFAULT_CONFIG_NAME
+    """Locate explicit config, environment config, local config, then the bundled example."""
+    environment_config = (
+        os.environ.get(CONFIG_ENV_VAR) or os.environ.get(LEGACY_CONFIG_ENV_VAR)
+    )
+    candidate = explicit or environment_config or DEFAULT_CONFIG_NAME
     path = Path(candidate).expanduser()
+    if not explicit and not environment_config and not path.is_file():
+        example_config = Path(__file__).resolve().parents[2] / "config.example.yaml"
+        if example_config.is_file():
+            return example_config
     if not path.is_file():
         raise FileNotFoundError(
-            f"Config file '{path}' not found. Copy config.example.yaml to config.yaml "
-            f"or pass --config / set ${CONFIG_ENV_VAR}."
+            f"Config file '{path}' not found. Pass --config or set "
+            f"${CONFIG_ENV_VAR} (legacy: ${LEGACY_CONFIG_ENV_VAR})."
         )
     return path
 

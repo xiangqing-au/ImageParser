@@ -13,8 +13,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from appautomation.analysis import ScreenshotAnalyser, ScreenshotParser, create_engine
-from appautomation.constants import SCREEN_PROFILES
+from imageparser.analysis import ScreenshotAnalyser, ScreenshotParser, create_engine
+from imageparser.constants import SCREEN_PROFILES
 
 PROFILE = "hd720"
 CITY, DATE = "NYC", "0101"

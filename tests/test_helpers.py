@@ -1,9 +1,9 @@
 import pytest
 
-from appautomation.naming import (
-    address_adapt, get_city_name, get_city_path, get_record_range, get_task_key,
+from imageparser.naming import (
+    get_city_path,
 )
-from appautomation.text_utils import (
+from imageparser.text_utils import (
     search_google_info, search_google_small, search_price, to_float, to_int,
 )
 
@@ -36,26 +36,11 @@ def test_search_price_missing_decimal_point():
     assert search_price("x $2130 y z", r"^(.*?)[\$S](\d+)(.*? .*?)$", 2) == 21.3
 
 
-@pytest.mark.parametrize("task,city,path,key", [
-    ("BOLT_NYC", "NYC", "NYC", "BOLT"),
-    ("MIA_DROPOFF", "MIA", "MIA_DROPOFF", "DEFAULT"),
-    ("NYC", "NYC", "NYC", "DEFAULT"),
-    ("TIME_NYC", "TIME_NYC", "TIME_NYC", "TIME"),
+@pytest.mark.parametrize("name,city", [
+    ("BOLT_NYC", "NYC"),
+    ("INDRIVE_HOU", "HOU"),
+    ("GOOGLE_LAX", "LAX"),
+    ("NYC", "NYC"),
 ])
-def test_task_names(task, city, path, key):
-    assert get_city_path(task) == path
-    assert get_task_key(task) == key
-    if task != "TIME_NYC":
-        assert get_city_name(task) == city
-
-
-def test_address_adapt():
-    assert address_adapt("Times Square", "BOLT_NYC") == "NY,Times Square,New York"
-    assert address_adapt("Union Square", "SFO").endswith(",San Francisco")
-    # All bundled cities are domestic: no country suffix is appended
-    assert "United States" not in address_adapt("Times Square", "BOLT_NYC")
-
-
-def test_record_range():
-    assert get_record_range(1, 10, 9) == (1, 10)
-    assert get_record_range(400, 0, 9) == (40 % 101, (40 + 3) % 101)
+def test_city_path(name, city):
+    assert get_city_path(name) == city

@@ -1,22 +1,26 @@
-# Copy this file to `config.yaml` and edit it. `config.yaml` is git-ignored.
+# Default configuration; copy to `config.yaml` and edit for a local override.
 
 # Root folder for routes/, screenshots/ and logs/ (absolute or relative path).
-work_base: ./workspace
+work_base: .
 
-# Path to adb. Use "adb" when it is on your PATH.
+# Legacy device-capture setting; retained for configuration compatibility.
 adb_path: adb
 # adb_path: C:\platform-tools\adb.exe
 
-# Only needed for the Tesseract OCR engine on Windows.
+# Set this only when Tesseract is not available on PATH.
 # tesseract_cmd: C:\Program Files\Tesseract-OCR\tesseract.exe
 
 # OCR engine for the analysis step: auto | easyocr | paddleocr | tesseract
-ocr_engine: auto
-ocr_gpu: true
+ocr_engine: tesseract
+ocr_gpu: false
 
-# Phones: alias -> ADB serial (see `adb devices`) and screen profile.
-# Aliases are what you pass to --phone. Profiles live in appautomation/constants.py.
+# Existing aliases and screen profiles. Aliases are passed to --phone.
+# Screen profiles live in imageparser/constants.py. Serials are retained for
+# configuration compatibility and are not used by image analysis.
 phones:
+  optus:
+    serial: unused
+    profile: hd720
   phone_a:
     serial: YOUR_ADB_SERIAL_A
     profile: hd720
@@ -24,10 +28,10 @@ phones:
     serial: YOUR_ADB_SERIAL_B
     profile: hd720
 
-# Route ids recorded when --partial is given.
+# Legacy capture setting; retained for configuration compatibility.
 partial_routes: [1, 2, 3]
 
-# Optional e-mail notifications through the Gmail API (remove the block to disable).
+# Legacy notification settings; retained for configuration compatibility.
 email:
   sender: your.sender@example.com
   recipient: your.recipient@example.com

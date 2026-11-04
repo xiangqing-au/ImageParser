@@ -4,49 +4,6 @@ from __future__ import annotations
 
 from typing import Dict, List, Tuple
 
-#: Hours between the timestamps stored in scheduled route files and local time.
-TIME_DIFFERENCE = 2
-
-#: Abort a run after this many routes failed in a row (non-scheduled mode).
-MAX_FAIL_THRESHOLD = 3
-
-# --------------------------------------------------------------------------- #
-# Cities
-# --------------------------------------------------------------------------- #
-#: Short city code -> full city name (used to build search addresses).
-CITY_NAMES: Dict[str, str] = {
-    "NYC": "New York", "LAX": "Los Angeles", "CHI": "Chicago",
-    "SFO": "San Francisco", "HOU": "Houston", "MIA": "Miami",
-}
-#: City code -> US state abbreviation.
-CITY_STATES: Dict[str, str] = {
-    "NYC": "NY", "LAX": "CA", "CHI": "IL", "SFO": "CA", "HOU": "TX", "MIA": "FL",
-}
-#: City code -> country name, for cities outside the home country.
-#: All supported cities are domestic; kept for cross-border support (see
-#: ``address_adapt`` in naming.py).
-CITY_COUNTRIES: Dict[str, str] = {}
-
-#: Service suffixes that may follow a city code, e.g. ``MIA_DROPOFF``.
-SERVICES: Tuple[str, ...] = ("MAX", "PICKUP", "DROPOFF", "DELIVER", "XLMAX", "TRAVEL", "SELECT")
-#: App prefixes that may precede a city code, e.g. ``BOLT_NYC``.
-PREFIXES: Tuple[str, ...] = ("BOLT", "INDRIVE", "GOOGLE")
-
-# --------------------------------------------------------------------------- #
-# Which apps are driven for which task name
-# --------------------------------------------------------------------------- #
-#: Task key (first or last ``_`` separated token of ``--city``) -> apps, in order.
-TASK_APPS: Dict[str, List[str]] = {
-    "DEFAULT": ["bolt", "google"],
-    "BOLT": ["bolt", "google"],
-    "INDRIVE": ["indrive"],
-    "GOOGLE": ["google"],
-    "TIME": ["bolt"],
-}
-
-#: Task keys for which OCR analysis is skipped after capturing.
-NO_ANALYSIS_TASKS = {"TIME", "INDRIVE"}
-
 # --------------------------------------------------------------------------- #
 # Screenshot regions of interest
 # --------------------------------------------------------------------------- #
@@ -57,6 +14,11 @@ SCREEN_PROFILES: Dict[str, Dict[str, Tuple[int, int, int, int]]] = {
     "hd720": {
         "B": (875, 1070, 500, 690),     # Bolt fare estimate
         "BI": (650, 1380, 40, 650),     # Bolt fare breakdown
+        "D": (780, 980, 450, 710),      # DiDi selected fare
+        "DI": (850, 1300, 20, 700),     # DiDi fare breakdown
+        "UX": (1090, 1310, 400, 710),  # UberX selected fare
+        "UX1": (820, 1010, 490, 710),  # UberX fare in the ride options list
+        "UXI": (420, 1200, 20, 710),   # Uber fare breakdown
         "G": (1320, 1450, 10, 710),     # Google Maps route summary (compact)
         "G2": (1020, 1370, 10, 710),    # Google Maps route summary (expanded)
     },

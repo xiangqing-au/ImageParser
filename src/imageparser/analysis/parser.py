@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 Row = Dict[str, object]
 
 _RANGE_VALUE = re.compile(r"^\D*(\d+(?:\.\d+)?-\d+(?:\.\d+)?)\D*$")
+_LIST_PRICE = re.compile(r"(?<!\d)(\d+(?:[.-]\d{2})|\d{3,4})(?!\d)")
 _BOLT_PRICE = r"^(.*?)[\$S](\d+\.?\d+)(.*? .*?)$"
 _BOLT_DISCOUNT = r"^(.*?)[\$S](\d+\.?\d+)(.*? .*?)[\$S](\d+\.?\d+)(.*?)$"
 
@@ -33,6 +34,8 @@ class ScreenshotParser:
 
     * ``B``  - Bolt ride options: fare estimate
     * ``BI`` - Bolt fare breakdown: fee items
+    * ``D`` / ``DI`` - DiDi selected fare and fare breakdown
+    * ``UX`` / ``UX1`` / ``UXI`` - UberX fare and fare breakdown
     * ``G``  - Google Maps: distance and duration
     """
 
@@ -49,11 +52,11 @@ class ScreenshotParser:
         """Dispatch on ``file_id`` and fill ``row``."""
         image = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2GRAY)
 
-        if file_id == "B":  # fare estimate; date/time come from the capture time
+        if file_id in ("B", "D", "UX", "UX1"):
             taken = time.localtime(os.path.getmtime(path))
             row["date"] = time.strftime("%Y/%m/%d", taken)
             row["time"] = time.strftime("%H:%M", taken)
-            self.parse_fare(image, row)
+            self.parse_fare(image, row, file_id)
         elif file_id.endswith("I"):
             self.parse_info(image, file_id, row)
         elif file_id.startswith("G"):
@@ -62,8 +65,12 @@ class ScreenshotParser:
     # ------------------------------------------------------------------ #
     # per screen type
     # ------------------------------------------------------------------ #
-    def parse_fare(self, image: np.ndarray, row: Row) -> None:
-        self._save_price(self._text(image, "B"), row)
+    def parse_fare(self, image: np.ndarray, row: Row, scope: str = "B") -> None:
+        text = self._text(image, scope)
+        if scope == "B":
+            self._save_price(text, row)
+        else:
+            self._save_list_price(text, row)
 
     def parse_info(self, image: np.ndarray, scope: str, row: Row) -> None:
         self._save_detail(self._lines(image, scope), row)
@@ -110,23 +117,38 @@ class ScreenshotParser:
             row["price"] = search_price(text, _BOLT_PRICE, 2)
 
     @staticmethod
+    def _save_list_price(text: str, row: Row) -> None:
+        """Pick the original fare shown after a discounted fare in app ride lists."""
+        prices = _LIST_PRICE.findall(text)
+        if not prices:
+            return
+        value = prices[-1].replace("-", ".")
+        if "." not in value and len(value) > 2:
+            value = f"{value[:-2]}.{value[-2:]}"
+        row["price"] = to_float(value)
+
+    @staticmethod
     def _save_detail(lines: List[str], row: Row) -> None:
-        """Map ``label, value`` pairs of the fare breakdown onto result columns."""
+        """Map fare labels and values onto result columns."""
         for item, labels in CHARGE_MAP.items():
-            fee, range_value = 0.0, None
+            fee, range_value, found = 0.0, None, False
             for label in labels:
-                if label not in lines or lines.index(label) + 1 >= len(lines):
-                    continue
-                value = lines[lines.index(label) + 1]
-                range_match = _RANGE_VALUE.match(value)
-                if range_match:                  # e.g. "0-12" km bracket
-                    range_value = range_match.group(1)
-                else:
-                    fee += to_float(value)
+                for index, line in enumerate(lines):
+                    if label not in line:
+                        continue
+                    found = True
+                    value = line.split(label, 1)[1].strip()
+                    if not value and index + 1 < len(lines):
+                        value = lines[index + 1]
+                    range_match = _RANGE_VALUE.match(value)
+                    if range_match:              # e.g. "0-12" km bracket
+                        range_value = range_match.group(1)
+                    else:
+                        fee += to_float(value)
 
             if range_value is not None:
                 row[item] = range_value
             elif fee != 0.0:
                 row[item] = fee
-            elif any(label in lines for label in labels):
+            elif found:
                 row[item] = 0

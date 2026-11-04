@@ -11,7 +11,7 @@ import csv
 import random
 from pathlib import Path
 
-from appautomation.report import write_report
+from imageparser.report import write_report
 
 HEADER = ["id", "date", "time", "dist", "trip", "toll", "surcharge", "surge", "price",
           "base", "minimum", "minute", "kilo", "booking", "rateB", "short", "medium",
@@ -40,7 +40,7 @@ with open(csv_path, "w", newline="", encoding="utf-8") as fh:
         base = round(random.uniform(2.5, 4.5), 2)
         km_rate = round(random.uniform(1.1, 2.2), 2)
         min_rate = round(random.uniform(0.3, 0.8), 2)
-        # Every fifth route simulates a failed capture (no price)
+        # Every fifth route has no price value.
         failed = index % 5 == 0
         writer.writerow({
             "id": index, "date": "2026/10/17", "time": f"09:{index * 7:02d}",
